@@ -154,6 +154,6 @@ If you build on **MDA**, please cite:
 This codebase builds on these open-source releases:
 
 - [**Depth Anything 3**](https://github.com/ByteDance-Seed/Depth-Anything-3) — one of the two backbones, and the source of the DINOv2-based encoder, DPT head, and inference code.
-- [**Stream3R**](https://github.com/facebookresearch/STream3R) — the Hydra/Lightning training launcher, multi-view DUSt3R data modules, and streaming VGGT-style sequence wrapper.
+- [**Stream3R**](https://github.com/NIRVANALAN/STream3R) — the Hydra/Lightning training launcher, multi-view DUSt3R data modules, and streaming VGGT-style sequence wrapper.
 
 We thank the authors for their work.
