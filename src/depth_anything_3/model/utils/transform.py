@@ -182,6 +182,51 @@ def standardize_quaternion(quaternions: torch.Tensor) -> torch.Tensor:
     return torch.where(quaternions[..., 3:4] < 0, -quaternions, quaternions)
 
 
+def depth_to_cam_coords_points(depth_map: np.ndarray, intrinsic: np.ndarray) -> np.ndarray:
+    """Convert a depth map to camera coordinates."""
+    H, W = depth_map.shape
+    assert intrinsic.shape == (3, 3), "Intrinsic matrix must be 3x3"
+    assert intrinsic[0, 1] == 0 and intrinsic[1, 0] == 0, "Intrinsic matrix must have zero skew"
+
+    fu, fv = intrinsic[0, 0], intrinsic[1, 1]
+    cu, cv = intrinsic[0, 2], intrinsic[1, 2]
+
+    u, v = np.meshgrid(np.arange(W), np.arange(H))
+    x_cam = (u - cu) * depth_map / fu
+    y_cam = (v - cv) * depth_map / fv
+    z_cam = depth_map
+
+    return np.stack((x_cam, y_cam, z_cam), axis=-1).astype(np.float32)
+
+
+def closed_form_inverse_se3(se3, R=None, T=None):
+    """Compute inverse transforms for a batch of SE3 matrices."""
+    is_numpy = isinstance(se3, np.ndarray)
+
+    if se3.shape[-2:] != (4, 4) and se3.shape[-2:] != (3, 4):
+        raise ValueError(f"se3 must be of shape (N,4,4) or (N,3,4), got {se3.shape}.")
+
+    if R is None:
+        R = se3[:, :3, :3]
+    if T is None:
+        T = se3[:, :3, 3:]
+
+    if is_numpy:
+        R_transposed = np.transpose(R, (0, 2, 1))
+        top_right = -np.matmul(R_transposed, T)
+        inverted_matrix = np.tile(np.eye(4), (len(R), 1, 1))
+    else:
+        R_transposed = R.transpose(1, 2)
+        top_right = -torch.bmm(R_transposed, T)
+        inverted_matrix = torch.eye(4, 4)[None].repeat(len(R), 1, 1)
+        inverted_matrix = inverted_matrix.to(R.dtype).to(R.device)
+
+    inverted_matrix[:, :3, :3] = R_transposed
+    inverted_matrix[:, :3, 3:] = top_right
+
+    return inverted_matrix
+
+
 def cam_quat_xyzw_to_world_quat_wxyz(cam_quat_xyzw, c2w):
     # cam_quat_xyzw: (b, n, 4) in xyzw
     # c2w: (b, n, 4, 4)
